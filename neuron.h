@@ -4,6 +4,7 @@
 
 #define NEURON_VECTOR_MAX_LENGTH 4096
 #define NEURON_AIF_MAX (0xFFFF-1)
+
 class Neuron : public QObject
 {
     Q_OBJECT
@@ -25,7 +26,7 @@ public:
      * @src_len, the length of the input vector
      * @return -1, not recognized. [return>=0] is the distance of the input vector.
      **/
-    int recognize(uint8_t * src_vector,int src_len);
+    int classify(uint8_t * src_vector,int src_len);
 
     //aif value.
     void setAIF(int aif);

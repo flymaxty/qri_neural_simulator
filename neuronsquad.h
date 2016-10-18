@@ -16,10 +16,25 @@ public:
     explicit NeuronSquad(QObject *parent = 0);
     ~NeuronSquad();
 
-    int category();
 
-    int classify(uint8_t *src_vector, int src_len);
+    /*
+     * Classified the input vector.
+     * Check if it belongs to this category.
+     * input:
+     * @src_vector, the input vector
+     * @src_len, length of the input vector
+     * output:
+     * @ptr_count, how many neurons recognized the input vector.
+     * @ptr_value, the minimum distance of the recognized neurons.
+     * return:
+     * -1, not recognized
+     * return>0,
+     */
+    int classify(uint8_t *src_vector, int src_len,
+                 int *ptr_count,int *ptr_value);
 
+
+    const int category();
 protected:
     void resetNeuronList();
 
