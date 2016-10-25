@@ -11,10 +11,8 @@ TEMPLATE = app
 
 SOURCES += main.cpp \
     neuron.cpp \
-    neuronsquad.cpp \
     neuronengine.cpp
 
 HEADERS += \
     neuron.h \
-    neuronsquad.h \
     neuronengine.h

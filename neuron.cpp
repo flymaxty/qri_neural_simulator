@@ -1,65 +1,92 @@
 #include "neuron.h"
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <math.h>
-Neuron::Neuron(QObject *parent) : QObject(parent)
-{
-    reset();
+
+//reset the input neuron
+static void _neuron_reset(neuron_data *n);
+
+void _neuron_reset(neuron_data *n){
+    if(!n)return;
+
+    //reset vectors
+    memset(n->vector,0,NEURON_VECTOR_MAX_LENGTH);
+    n->len = 0;
+
+    n->cat=0;
+    n->aif = NEURON_AIF_MAX;
+
+    n->firing = 0;
 }
 
-void Neuron::init(int cat, uint8_t *src_vector, int src_len)
+bool neuron_init(neuron_data *n, uint8_t *src_vector, int src_len, int cat, int aif)
 {
-    if(src_len>NEURON_VECTOR_MAX_LENGTH ||  src_len<=0){
-        return;
+    if(n==NULL ||
+       src_vector==NULL ||
+       src_len>NEURON_VECTOR_MAX_LENGTH ||
+       src_len<=0){
+        return false;
     }
 
-    //reset this neuron
-    reset();
-    m_cat = cat;
+    //reset the neuron
+    _neuron_reset(n);
 
     //copy the vector to my vector.
-    memcpy(m_vector,src_vector,src_len);
-    m_vectorLen = src_len;
+    memcpy(n->vector,src_vector,src_len);
+    n->len = src_len;
+
+    n->aif = aif;
+    n->cat = cat;
+
+    return true;
 }
-void Neuron::reset()
-{
-    //reset vectors
-    memset(m_vecotr,0,NEURON_VECTOR_MAX);
-    m_vectorLen = 0;
-    //reset cat
-    m_cat=0;
-    //reset aif
-    m_aif = NEURON_AIF_MAX; //max of int16_6
+int neuron_distance_L1(neuron_data *n, uint8_t *src_vector, int src_len){
+   int dist = 0;
+   int len = 0;
+
+   //check input
+   if(n==NULL ||
+      src_vector==NULL ||
+      src_len>NEURON_VECTOR_MAX_LENGTH){
+       return -1; //distance cannot be smaller than zero.
+   }
+
+   //check the array size.
+   len = (src_len>n->len)?src_len:n->len;
+   for(int i=0;i<len;i++){
+       if(i<src_len){
+           dist = dist + abs(src_vector[i]-n->vector[i]);
+       }else{
+           dist = dist + abs(n->vector[i]);
+       }
+   }
+   return dist;
 }
-int Neuron::distance(uint8_t *src_vector, int src_len)
-{
-    int dist=0;
-    int len=0;
+
+int neuron_distance_Lsup(neuron_data *n, uint8_t *src_vector, int src_len){
+    int dist = 0;
+    int len = 0;
+    int val=0;
+
     //check input
-    if(src_vector==NULL || src_len>NEURON_VECTOR_MAX){
+    if(n==NULL ||
+       src_vector==NULL ||
+       src_len>NEURON_VECTOR_MAX_LENGTH){
         return -1; //distance cannot be smaller than zero.
     }
 
     //check the array size.
-    len = (src_len>m_vectorLen)?src_len:m_vectorLen;
+    len = (src_len>n->len)?src_len:n->len;
     for(int i=0;i<len;i++){
         if(i<src_len){
-            dist = dist + abs(src_vector[i]-m_vector[i]);
+            val = abs(src_vector[i]-n->vector[i]);
         }else{
-            dist = dist + abs(m_vector[i]);
+            val = abs(n->vector[i]);
+        }
+        if(val>dist){
+            dist = val;
         }
     }
     return dist;
 }
-int Neuron::classify(uint8_t *src_vector, int src_len){
-    int value = distance(src_vector,src_len);
-    if(value<m_aif){
-        return value;
-    }
-    return -1;
-}
-
-int Neuron::category(){return m_cat;}
-void Neuron::setAIF(int aif){
-    m_aif = aif;
-}
-int Neuron::aif(){return m_aif;}
