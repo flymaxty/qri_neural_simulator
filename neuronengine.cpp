@@ -17,13 +17,18 @@
 **
 ****************************************************************************/
 #include "neuronengine.h"
-#include <qdebug.h>
-NeuronEngine::NeuronEngine(QObject *parent) : QObject(parent)
+#include <stdio.h>
+#include <stdlib.h>
+#include <algorithm>
+
+static bool neuron_compare(neuron_data* a,neuron_data* b);
+
+NeuronEngine::NeuronEngine()
 {
-    Forget();
+    resetEngine();
 }
 NeuronEngine::~NeuronEngine(){
-    Forget();
+    resetEngine();
 }
 
 bool NeuronEngine::Begin(){
@@ -37,7 +42,7 @@ bool NeuronEngine::Begin(int mode,int norm, int minAIF,int maxAIF)
     }
 
     //step1.reset the engine
-    Forget();
+    resetEngine();
 
     //step2 norm
     switch(norm){
@@ -50,14 +55,7 @@ bool NeuronEngine::Begin(int mode,int norm, int minAIF,int maxAIF)
     }
 
     //step3 mode
-    switch(mode){
-    case MODE_RBF:
-    case MODE_KNN:
-        m_mode = mode;
-        break;
-    default:
-        return false;
-    }
+    SetMode((enum MODE)mode);
 
     //step4 aif
     m_minAIF = minAIF;
@@ -65,10 +63,20 @@ bool NeuronEngine::Begin(int mode,int norm, int minAIF,int maxAIF)
 
     return true;
 }
-const int NeuronEngine::Mode(){
+void NeuronEngine::SetMode(MODE mode){
+
+    switch(mode){
+    case MODE_RBF:
+    case MODE_KNN:
+        m_mode = mode;
+        break;
+    }
+}
+
+int NeuronEngine::Mode(){
     return m_mode;
 }
-void NeuronEngine::Forget(){
+void NeuronEngine::resetEngine(){
     m_norm = NORM_L1;
     m_mode = MODE_RBF;
     m_lastCreateNeuron = 0;
@@ -84,11 +92,7 @@ void NeuronEngine::Forget(){
 }
 const neuron_data* NeuronEngine::ReadNeuron(int index)
 {
-    if(index<0 || index>=m_neuronList.size()){
-        return NULL;
-    }
-    neuron_data* ptr = m_neuronList.at(index);
-    return ptr;
+    return m_neuronList.at(index);
 }
 int NeuronEngine::Learn(int cat, uint8_t *vec, int len){
     int ret = 0;
@@ -110,11 +114,16 @@ int NeuronEngine::Learn(int cat, uint8_t *vec, int len){
     return ret;
 }
 
-int NeuronEngine::Classify(uint8_t vec[], int len){
+int NeuronEngine::Classify(uint8_t vec[], int len, uint8_t nid[], int *nidLen)
+{
+    vector<neuron_data* >::iterator iter;
+    int index=0;
     int ret = 0;
+
     if(vec==NULL || len==0){
-        return -1;
+        return 0;
     }
+
     switch(m_mode){
     case MODE_RBF:
         ret = classifyRBF(vec,len);
@@ -123,18 +132,25 @@ int NeuronEngine::Classify(uint8_t vec[], int len){
         ret = classifyKNN(vec,len);
         break;
     }
+
+    if(nid && nidLen){
+        for(iter = m_firingList.begin();iter<m_firingList.end();iter++){
+            neuron_data* ptr = *iter;
+            nid[index] = ptr->index;
+            index++;
+        }
+        *nidLen = m_firingList.size();
+    }
+
     return ret;
+}
+
+int NeuronEngine::Classify(uint8_t vec[], int len){
+    return Classify(vec,len,NULL,NULL);
 }
 
 int NeuronEngine::NeuronSize() const{
     return m_neuronList.size();
-}
-
-void NeuronEngine::ReadClassifyReport(uint8_t nid[], int *len){
-
-}
-const neuron_data * NeuronEngine::ReadClassifyNeuron(int index){
-    return NULL;
 }
 
 bool NeuronEngine::checkNeuronFiring(neuron_data *ptr, uint8_t *vec, int len,int* ptrDist)
@@ -157,7 +173,7 @@ bool NeuronEngine::checkNeuronFiring(neuron_data *ptr, uint8_t *vec, int len,int
     return false;
 }
 int NeuronEngine::learnRBF(int cat, uint8_t *vec, int len){
-    QList<neuron_data*>::iterator iter = m_neuronList.begin();
+    vector<neuron_data*>::iterator iter = m_neuronList.begin();
     int dist=0;
     int minDist = NEURON_AIF_MAX;
     bool isExist=false;
@@ -175,7 +191,7 @@ int NeuronEngine::learnRBF(int cat, uint8_t *vec, int len){
         //calc the distance
         if(checkNeuronFiring(ptr,vec,len,&dist))
         {/**Firing!!!**/
-            m_firingList.append(ptr);
+            m_firingList.push_back(ptr);
             if(ptr->cat == cat){
                 //if it exists in its own neuron. do not create new neuron
                 isExist=true;
@@ -203,14 +219,14 @@ int NeuronEngine::learnRBF(int cat, uint8_t *vec, int len){
         updateNeuronAIF(nptr,minDist);//AIF
 
         //append the new neuron
-        m_neuronList.append(nptr);
+        m_neuronList.push_back(nptr);
     }
     return m_neuronList.size();
 }
 
 int NeuronEngine::classifyRBF(uint8_t vec[], int len)
 {
-    QList<neuron_data*>::iterator iter = m_neuronList.begin();
+    vector<neuron_data*>::iterator iter = m_neuronList.begin();
     int dist=0;
     int minDist = NEURON_AIF_MAX;
     int retCat=0;
@@ -232,7 +248,7 @@ int NeuronEngine::classifyRBF(uint8_t vec[], int len)
                 minDist = dist;
                 retCat = ptr->cat;
             }
-            m_firingList.append(ptr);
+            m_firingList.push_back(ptr);
             ptr->firing = dist;
         }
     }
@@ -240,7 +256,7 @@ int NeuronEngine::classifyRBF(uint8_t vec[], int len)
     return retCat;
 }
 int NeuronEngine::classifyKNN(uint8_t vec[], int len){
-    QList<neuron_data*>::iterator iter = m_neuronList.begin();
+    vector<neuron_data*>::iterator iter = m_neuronList.begin();
     int dist=0;
     int minDist = NEURON_AIF_MAX;
     int retCat=0;
@@ -262,9 +278,11 @@ int NeuronEngine::classifyKNN(uint8_t vec[], int len){
             retCat = ptr->cat;
         }
         ptr->firing = dist;//save the dist
+        m_firingList.push_back(ptr);
     }
 
     /*TODO: add a post processing function to sort the result*/
+    sort(m_firingList.begin(),m_firingList.end(),neuron_compare);
 
     return retCat;
 }
@@ -282,7 +300,7 @@ void NeuronEngine::updateNeuronAIF(neuron_data *ptr, int aif)
 
 void NeuronEngine::clearNeuronList()
 {
-    QList<neuron_data*>::iterator iter = m_neuronList.begin();
+    vector<neuron_data*>::iterator iter = m_neuronList.begin();
     for(iter = m_neuronList.begin();iter<m_neuronList.end();iter++){
         neuron_data * ptr = *iter;
         if(ptr){
@@ -292,3 +310,6 @@ void NeuronEngine::clearNeuronList()
     m_neuronList.clear();
 }
 
+bool neuron_compare(neuron_data* a,neuron_data* b){
+    return a->firing < b->firing;
+}

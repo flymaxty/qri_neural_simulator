@@ -19,15 +19,13 @@
 #ifndef NEURONENGINE_H
 #define NEURONENGINE_H
 
-#include <QObject>
-#include <QList>
+#include <vector>
 #include "neuron.h"
 
-#define NEURONENGINE_MAX_NUM 4096
+using namespace std;
 
-class NeuronEngine : public QObject
+class NeuronEngine
 {
-    Q_OBJECT
 public:
 
     enum NORM{
@@ -39,9 +37,7 @@ public:
         MODE_KNN=1
     };
 
-    static const int MaxNeuronSize=NEURONENGINE_MAX_NUM;
-
-    explicit NeuronEngine(QObject *parent = 0);
+    explicit NeuronEngine();
     ~NeuronEngine();
 
     //begin with the default settings.
@@ -55,9 +51,9 @@ public:
      * return:
      * true, if success
      */
-    virtual bool Begin(int mode,int norm,int minAIF,int maxAIF);
-    virtual void Forget();//reset the whole engine
-    const int Mode();
+    virtual bool Begin(int mode,int norm=NORM_L1,int minAIF=0,int maxAIF=NEURON_AIF_MAX);
+    void SetMode(enum MODE mode);
+    int Mode();
 
     /*purpose:learn the input vectors
      *input:
@@ -75,28 +71,19 @@ public:
      *input:
      * @vec, the input vector
      * @len, the input length
+     *output:
+     * @nid, the neurons' index firing in this classify ops
+     * @nidLen, the length of the output NID array
      *return:
      * @return the recognized category
      * @return 0 if not recognized
      */
+    virtual int Classify(uint8_t vec[],int len,uint8_t nid[],int *nidLen);
     virtual int Classify(uint8_t vec[],int len);
 
-    /*purpose: read the classify detail report.
-     *output:
-     * @nid, the firing/sorting neuron's index array
-     * @len, the length of the nid Array
-     */
-    void ReadClassifyReport(uint8_t nid[],int *len);
-
-    /*purpose: read the neurons related to the Classify operation.
-     *input:
-     * @index, the firing/sorting neuron's index
-     *return:
-     * the neuron_data.
-     */
-    const neuron_data * ReadClassifyNeuron(int index);
-
 protected:
+    virtual void resetEngine();//reset the whole engine
+
     void clearNeuronList();//clear the neuron list, including the ram.
 
     /*purpose:read the firing distances, call this after the classify functoion.
@@ -116,8 +103,8 @@ protected:
     virtual int classifyRBF(uint8_t vec[],int len);
     virtual int classifyKNN(uint8_t vec[],int len);
 protected:
-    QList<neuron_data*> m_firingList;//saves all fired neurons;
-    QList<neuron_data*> m_neuronList;//saves all generated neuron data
+    vector<neuron_data*> m_firingList;//saves all fired neurons;
+    vector<neuron_data*> m_neuronList;//saves all generated neuron data
 
     int m_maxAIF;
     int m_minAIF;
