@@ -155,12 +155,12 @@ int main(int argc, char *argv[])
     printf("\n\nMode:%d, Recognized: %d, firing neuron number: %d\n",engine.Mode(),cat,len);
 
     for(int i=0;i<len;i++){
-        const neuron_data * ptr = engine.ReadNeuron(nid[i]);
+        Neuron * ptr = engine.ReadNeuron(nid[i]);
         printf("[%d] index=%d, cat=%d, distance=%d\n",
                i,
-               ptr->index,
-               ptr->cat,
-               ptr->firing);
+               ptr->index(),
+               ptr->cat(),
+               ptr->firing());
     }
 
     printf("\n==========================Test cases done===============================\n");
@@ -192,13 +192,14 @@ void displayNeurons(){
     int count = engine.NeuronSize();
     printf("\nDisplaying Neurons:%d\n",count);
     for(int i=0;i<count;i++){
-        const neuron_data * ptr = engine.ReadNeuron(i);
+        Neuron * ptr = engine.ReadNeuron(i);
+        const uint8_t *buffer = ptr->buffer();
         printf("[%d]\tcat:%d,\taif:%d,\tvector:",
-               ptr->index,
-               ptr->cat,
-               ptr->aif);
-        for(int k=0;k<ptr->len;k++){
-            printf("%d ",(uint8_t)ptr->vector[k]);
+               ptr->index(),
+               ptr->cat(),
+               ptr->aif());
+        for(int k=0;k<ptr->length();k++){
+            printf("%d ",(uint8_t)buffer[k]);
         }
         printf("\n");
     }
